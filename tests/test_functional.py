@@ -10,7 +10,7 @@ import geoip_lastlog
 
 @pytest.fixture
 def mock_out_GEOIP_CITY_PATH(monkeypatch):
-    monkeypatch.setattr('geoip_lastlog.GEOIP_CITY_PATH', None)
+    monkeypatch.setattr('geoip_lastlog.GEOIP_CITY_PATH', '_not_a_real_file_')
 
 
 def test_load_tor_exit_nodes():

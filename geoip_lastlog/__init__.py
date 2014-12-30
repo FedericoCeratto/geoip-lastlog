@@ -9,6 +9,7 @@ from argparse import ArgumentParser
 import GeoIP
 import UTMPCONST
 import arrow
+import os.path
 import socket
 import utmp
 
@@ -47,9 +48,9 @@ def load_wtmp_file():
 
 class Geolocator(object):
     def __init__(self):
-        try:
+        if os.path.isfile(GEOIP_CITY_PATH):
             self._geodb = GeoIP.open(GEOIP_CITY_PATH, GeoIP.GEOIP_MEMORY_CACHE)
-        except:
+        else:
             self._geodb = GeoIP.open(GEOIP_PATH, GeoIP.GEOIP_MEMORY_CACHE)
 
     def locate_address(self, addr):
@@ -69,7 +70,6 @@ class Geolocator(object):
 
         elif 'Country Edition' in self._geodb.database_edition:
             # it's a Country Edition, use country_name_by_addr
-            print 'COUNTRY EDITION'
             country_name = self._geodb.country_name_by_addr(addr)
             return dict(country_name=country_name)
 
