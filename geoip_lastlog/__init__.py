@@ -3,7 +3,7 @@
 # Geolocalization for MOTD / SSH last login
 #
 # Copyright (C) 2014 Federico Ceratto
-# Released under GPLv3+ license, see LICENSE
+# Released under AGPLv3+ license, see LICENSE
 
 from argparse import ArgumentParser
 import GeoIP
@@ -11,10 +11,35 @@ import UTMPCONST
 import arrow
 import os.path
 import socket
+import struct
 import utmp
 
 GEOIP_PATH = "/usr/share/GeoIP/GeoIP.dat"
 GEOIP_CITY_PATH = '/usr/share/GeoIP/GeoLiteCity.dat'
+
+
+def convert_ut_addr_v6(v6):
+    """Convert ut_addr_v6 structure"""
+    if v6[1:] == (0, 0, 0):
+        v4 = v6[0]
+        p = struct.pack('i', v4)
+        return socket.inet_ntoa(p)
+
+    else:
+        p = struct.pack('4i', *v6)
+        return socket.inet_ntop(socket.AF_INET6, p)
+
+
+def extract_ip_addr(ut_user, ut_addr_v6):
+    if ut_addr_v6 == (0, 0, 0, 0):
+        if ' via mosh ' in ut_user:
+            # Mosh sets ut_user to "<ipaddr> via mosh ..."
+            return ut_user.split()[0]
+
+        return None  # local connection
+
+    # IPv4 or IPV6
+    return convert_ut_addr_v6(ut_addr_v6)
 
 
 def load_tor_exit_nodes(fname):
@@ -40,7 +65,8 @@ def load_wtmp_file():
             break
 
         if user[0] == UTMPCONST.USER_PROCESS:
-            logins.append((user.ut_tv[0], user.ut_user, user.ut_host))
+            logins.append((user.ut_tv[0], user.ut_user, user.ut_host,
+                           user.ut_addr_v6))
 
     wf.endutent()
     return sorted(logins)
@@ -58,11 +84,8 @@ class Geolocator(object):
 
         :returns: dict
         """
-        try:
-            socket.inet_aton(addr)
-        except socket.error:  # pragma: no cover
-            # It's not an IP address
-            return None
+        if not addr:
+            return {}
 
         if 'City Edition' in self._geodb.database_edition:
             # City Edition supports record_by_addr
@@ -91,17 +114,18 @@ def geolocate_and_format(logins, max_logins, tor, humanize_date):
         else:
             line = '             '
 
-        date, login_name, source = login_data
+        date, login_name, ut_user, ut_addr_v6 = login_data
         date = arrow.get(date)
-        location = gl.locate_address(source)
+        ipaddr = extract_ip_addr(ut_user, ut_addr_v6)
+        location = gl.locate_address(ipaddr)
         if humanize_date:
             date = date.humanize()
         else:
             date = date.format('ddd MMM DD HH:mm:ss YYYY')
 
         line += "%s %s" % (date, login_name)
-        if source:
-            line += " from %s" % source
+        if ut_user:
+            line += " from %s" % ut_user
 
         if location and  location['country_name']:
             line += " %s" % location['country_name']
@@ -109,7 +133,7 @@ def geolocate_and_format(logins, max_logins, tor, humanize_date):
             if location.get('city', None) is not None:
                 line += ", %s" % location['city']
 
-        if tor and source in tor_ip_addrs:
+        if tor and ipaddr in tor_ip_addrs:
             line += ' [tor]'
 
         output.append(line)

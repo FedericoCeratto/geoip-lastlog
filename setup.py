@@ -2,7 +2,7 @@
 
 from setuptools import setup
 
-__version__ = '0.6'
+__version__ = '0.6.1'
 
 CLASSIFIERS = map(str.strip,
 """Environment :: Console
@@ -29,7 +29,6 @@ traffic. Optionally detects SSH connections from Tor exit nodes.""",
     install_requires=[
         'setuptools',
         'arrow',
-        'geoip',
     ],
     platforms=['Linux'],
     zip_safe=False,
