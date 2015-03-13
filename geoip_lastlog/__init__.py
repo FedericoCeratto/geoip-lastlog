@@ -127,7 +127,7 @@ def geolocate_and_format(logins, max_logins, tor, humanize_date):
         if ut_user:
             line += " from %s" % ut_user
 
-        if location and  location['country_name']:
+        if location and location['country_name']:
             line += " %s" % location['country_name']
 
             if location.get('city', None) is not None:
